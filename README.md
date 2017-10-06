@@ -20,4 +20,4 @@ Como usar:
         
   3.2 - Para pegar a versão desejada adicione também a versão do OffDroid
   
-          compile 'br.com.guerethes.offdroid:offDroidLib:0.0.11'
+          compile 'br.com.guerethes.offdroid:offDroidLib:0.0.1'
