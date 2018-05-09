@@ -61,7 +61,18 @@ public class BuildUrl {
                             url += "?" + convertFieldToJsonProperty(classEntity, restrictions.get(index).getField()) + "=" + restrictions.get(index).getValue();
                             firstQuery = false;
                         } else {
-                            url += "&" + convertFieldToJsonProperty(classEntity, restrictions.get(index).getField()) + "=" + restrictions.get(index).getValue();
+                            Object value = restrictions.get(index).getValue();
+
+                            if (value instanceof List) {
+                                List<Object> list = (List<Object>) value;
+                                Object object = list.get(0);
+                                for (int i = 1; i < list.size(); i++) {
+                                    object += "," + list.get(i);
+                                }
+                                value = object;
+                            }
+
+                            url += "&" + convertFieldToJsonProperty(classEntity, restrictions.get(index).getField()) + "=" + value;
                         }
                     }
                 }
@@ -75,16 +86,32 @@ public class BuildUrl {
                 }
 
                 if (restrictions.get(index) instanceof Limit) {
-                    url += "&limit=" + restrictions.get(index).getValue();
+                    if (firstQuery) {
+                        url += "?limit=" + restrictions.get(index).getValue();
+                        firstQuery = false;
+                    } else {
+                        url += "&limit=" + restrictions.get(index).getValue();
+                    }
                 }
 
                 if (restrictions.get(index) instanceof OffSet) {
-                    url += "&offset=" + restrictions.get(index).getValue();
+                    if (firstQuery) {
+                        url += "?offset=" + restrictions.get(index).getValue();
+                        firstQuery = false;
+                    } else {
+                        url += "&offset=" + restrictions.get(index).getValue();
+                    }
                 }
             }
 
             if (!mapOrderAsc.isEmpty()) {
-                url += "&order-asc=";
+                if (firstQuery) {
+                    url += "?order-asc=";
+                    firstQuery = false;
+                } else {
+                    url += "&order-asc=";
+                }
+
                 for (int i = 0; i < mapOrderAsc.size(); i++) {
                     url += mapOrderAsc.get(i);
                     if (!(mapOrderAsc.size() == (i + 1)))
@@ -93,7 +120,13 @@ public class BuildUrl {
             }
 
             if (!mapOrderDesc.isEmpty()) {
-                url += "&order-desc=";
+                if (firstQuery) {
+                    url += "?order-desc=";
+                    firstQuery = false;
+                } else {
+                    url += "&order-desc=";
+                }
+
                 for (int i = 0; i < mapOrderDesc.size(); i++) {
                     url += mapOrderDesc.get(i);
                     if (!(mapOrderDesc.size() == (i + 1)))

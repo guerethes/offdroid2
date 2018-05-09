@@ -16,6 +16,8 @@ import java.util.List;
 
 import br.com.guerethes.offdroid.persist.interfaces.PersistDB;
 import br.com.guerethes.offdroid.query.ElementsRestrictionQuery;
+import br.com.guerethes.offdroid.query.pagination.Limit;
+import br.com.guerethes.offdroid.query.pagination.OffSet;
 
 /**
  * Created by jean on 26/12/16.
@@ -26,7 +28,7 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
     protected static String bd = "/offdroid.db";
     private static ObjectContainer db = null;
 
-    private static String getPath(Context context) {
+    private synchronized static String getPath(Context context) {
         PackageManager m = context.getPackageManager();
         String s = context.getPackageName();
         PackageInfo p = null;
@@ -38,7 +40,7 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
         return p.applicationInfo.dataDir;
     }
 
-    protected static ObjectContainer getDb(Context context) {
+    protected synchronized static ObjectContainer getDb(Context context) {
         if (db == null) {
             db = Db4o.openFile(getPath(context) + bd);
         }
@@ -46,7 +48,7 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
     }
 
     @Override
-    protected boolean isExistsDB(Context context) {
+    protected synchronized boolean isExistsDB(Context context) {
         File file = new File(getPath(context) + bd);
         if (file.exists() && !file.isDirectory()) {
             return true;
@@ -55,7 +57,7 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
     }
 
     @Override
-    protected void cleanDB(Context context) {
+    protected synchronized void cleanDB(Context context) {
         getDb(context).close();
         File file = new File(getPath(context) + bd);
         boolean deleted = file.delete();
@@ -73,7 +75,7 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
      * @param object
      */
     @Override
-    protected PersistDB insert(PersistDB object, Context context) {
+    protected synchronized PersistDB insert(PersistDB object, boolean update, Context context) {
         try {
 
             Query q = getDb(context).query();
@@ -81,13 +83,16 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
             q.descend("id").constrain(object.getId()).equal();
             ObjectSet set = q.execute();
 
-            if (!set.isEmpty()) {
+            if (!set.isEmpty() && update) {
                 PersistDB persiste = (PersistDB) set.next();
                 remove(persiste, context);
-            }
 
-            getDb(context).set(object);
-            getDb(context).commit();
+                getDb(context).set(object);
+                getDb(context).commit();
+            } else if (set.isEmpty()) {
+                getDb(context).set(object);
+                getDb(context).commit();
+            }
 
             Log.i("INSERT", object.getClass().getSimpleName());
             return object;
@@ -104,28 +109,53 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
      * @throws Exception
      */
     @Override
-    protected ArrayList<PersistDB> toList(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
+    protected synchronized ArrayList<PersistDB> toList(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
         Query q = null;
         q = getDb(context).query();
         q.constrain(classEntity);
 
+        int limit = -1, offset = -1;
         for (ElementsRestrictionQuery query : restrictions) {
-            query.toDDL(q);
+            if (query instanceof Limit || query instanceof OffSet) {
+                if (query instanceof Limit)
+                    limit = (Integer) query.getValue();
+                if (query instanceof OffSet)
+                    offset = (Integer) query.getValue();
+            } else {
+                query.toDDL(q);
+            }
         }
 
         ObjectSet<PersistDB> result = q.execute();
+        ArrayList<PersistDB> list = null;
 
-        ArrayList<PersistDB> list = new ArrayList<>();
+        if (limit != -1 || offset != -1) {
+            int size = result.size();
 
-        for (PersistDB data : result)
-            list.add(data);
+            if (limit > size)
+                limit = size;
+            if (offset > size)
+                offset = 0;
+
+            if (limit != -1 && offset != -1)
+                list = new ArrayList<>(result.subList(offset, limit));
+            if (limit != -1 && offset == -1)
+                list = new ArrayList<>(result.subList(0, limit));
+            if (limit == -1 && offset != -1)
+                list = new ArrayList<>(result.subList(offset, result.size()));
+        } else {
+            list = new ArrayList<>(result);
+        }
+
+//        for (PersistDB data : result)
+//            list.add(data);
 
         Log.i("toList()", classEntity.getSimpleName() + " - Size: " + list.size());
         return list;
     }
 
     @Override
-    protected PersistDB toUniqueResult(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
+    protected synchronized PersistDB toUniqueResult(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
         Query q = null;
         q = getDb(context).query();
         q.constrain(classEntity);
@@ -146,12 +176,12 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
     }
 
     @Override
-    protected PersistDB login(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
+    protected synchronized PersistDB login(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
         return toUniqueResult(classEntity, restrictions, context);
     }
 
     @Override
-    protected Integer count(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
+    protected synchronized Integer count(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context) {
         Query q = null;
         q = getDb(context).query();
         q.constrain(classEntity);
@@ -166,18 +196,26 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
     }
 
     @Override
-    protected void remove(PersistDB object, Context context) {
+    protected synchronized void remove(PersistDB object, Context context) {
         try {
-            getDb(context).delete(object);
-            getDb(context).commit();
-            Log.i("Delete", object.getClass().getSimpleName());
+            Query q = getDb(context).query();
+            q.constrain(object.getClass());
+            q.descend("id").constrain(object.getId()).equal();
+            ObjectSet set = q.execute();
+
+            if (!set.isEmpty()) {
+                PersistDB persiste = (PersistDB) set.next();
+                getDb(context).delete(persiste);
+                getDb(context).commit();
+                Log.i("DELETE", object.getClass().getSimpleName() + " - " + object.getId());
+            }
         } catch (Exception e) {
             getDb(context).rollback();
         }
     }
 
     @Override
-    protected PersistDB update(PersistDB object, Context context) {
+    protected synchronized PersistDB update(PersistDB object, Context context) {
         try {
             Query q = getDb(context).query();
             q.constrain(object.getClass());
@@ -191,7 +229,7 @@ public class QueryOffDroidLocal extends QueryOffDroidAbsLocal {
             getDb(context).set(object);
             getDb(context).commit();
 
-            Log.i("UPDATE", object.getClass().getSimpleName());
+            Log.i("UPDATE", object.getClass().getSimpleName() + " - " + object.getId());
             return object;
         } catch (Exception e) {
             getDb(context).rollback();

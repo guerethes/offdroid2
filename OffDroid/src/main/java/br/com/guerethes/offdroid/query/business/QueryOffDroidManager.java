@@ -38,6 +38,7 @@ public class QueryOffDroidManager {
     private static NetworkChangeReceiver receiver = new NetworkChangeReceiver();
     private BuildUrl buildUrl;
 
+
     private QueryOffDroidManager(Class e, long cache, boolean local, Context context,
                                  QueryOffDroidAbsLocal queryOffDroidAbsLocalTemp, QueryOffDroidAbsWeb queryOffDroidAbsWebTemp) {
         super();
@@ -57,27 +58,32 @@ public class QueryOffDroidManager {
         }
     }
 
-    public static QueryOffDroidManager from(Class<?> clazz, Context context) {
+    public synchronized static QueryOffDroidManager from(Context context) {
+        restrictions = new ArrayList<ElementsRestrictionQuery>();
+        return new QueryOffDroidManager(null, 0, false, context, null, null);
+    }
+
+    public synchronized static QueryOffDroidManager from(Class<?> clazz, Context context) {
         restrictions = new ArrayList<ElementsRestrictionQuery>();
         return new QueryOffDroidManager(clazz, 0, false, context, null, null);
     }
 
-    public static QueryOffDroidManager from(Class<?> clazz, long cache, Context context) {
+    public synchronized static QueryOffDroidManager from(Class<?> clazz, long cache, Context context) {
         restrictions = new ArrayList<ElementsRestrictionQuery>();
         return new QueryOffDroidManager(clazz, cache, false, context, null, null);
     }
 
-    public static QueryOffDroidManager from(Class<?> clazz, boolean local, Context context) {
+    public synchronized static QueryOffDroidManager from(Class<?> clazz, boolean local, Context context) {
         restrictions = new ArrayList<ElementsRestrictionQuery>();
         return new QueryOffDroidManager(clazz, 0, local, context, null, null);
     }
 
-    public static QueryOffDroidManager from(Class<?> clazz, Context context, QueryOffDroidAbsLocal queryOffDroidAbsLocal) {
+    public synchronized static QueryOffDroidManager from(Class<?> clazz, Context context, QueryOffDroidAbsLocal queryOffDroidAbsLocal) {
         restrictions = new ArrayList<ElementsRestrictionQuery>();
         return new QueryOffDroidManager(clazz, 0, false, context, queryOffDroidAbsLocal, null);
     }
 
-    public static QueryOffDroidManager from(Class<?> clazz, Context context, QueryOffDroidAbsWeb queryOffDroidAbsWeb) {
+    public synchronized static QueryOffDroidManager from(Class<?> clazz, Context context, QueryOffDroidAbsWeb queryOffDroidAbsWeb) {
         restrictions = new ArrayList<ElementsRestrictionQuery>();
         return new QueryOffDroidManager(clazz, 0, false, context, null, queryOffDroidAbsWeb);
     }
@@ -97,7 +103,11 @@ public class QueryOffDroidManager {
      * @return
      * @throws Exception
      */
-    public ArrayList<?> toList() throws Exception {
+    public synchronized ArrayList<?> toList() throws Exception {
+        return toList(true);
+    }
+
+    public synchronized ArrayList<?> toList(boolean update) throws Exception {
         if (context != null && hasCache(context)) {
             return getInstanceQueryOffDroidAbsLocal().toList(classEntity, restrictions, context);
         } else if (local) {
@@ -122,7 +132,7 @@ public class QueryOffDroidManager {
                         genericPersist.beforeInsert();
                     }
 
-                    getInstanceQueryOffDroidAbsLocal().insert(persistDB, context);
+                    getInstanceQueryOffDroidAbsLocal().insert(persistDB, update, context);
                 }
                 saveCache();
                 return result;
@@ -132,7 +142,11 @@ public class QueryOffDroidManager {
         }
     }
 
-    public PersistDB toUniqueResult() throws Exception {
+    public synchronized PersistDB toUniqueResult() throws Exception {
+        return toUniqueResult(true);
+    }
+
+    public synchronized PersistDB toUniqueResult(boolean update) throws Exception {
         if (context != null && hasCache(context)) {
             return getInstanceQueryOffDroidAbsLocal().toUniqueResult(classEntity, restrictions, context);
         } else if (local) {
@@ -156,7 +170,7 @@ public class QueryOffDroidManager {
                     GenericPersist genericPersist = (GenericPersist) persistDB;
                     genericPersist.beforeInsert();
                 }
-                getInstanceQueryOffDroidAbsLocal().insert(persistDB, context);
+                getInstanceQueryOffDroidAbsLocal().insert(persistDB, update, context);
                 saveCache();
                 return persistDB;
             } else {
@@ -165,7 +179,7 @@ public class QueryOffDroidManager {
         }
     }
 
-    public Integer count() throws OffDroidException {
+    public synchronized Integer count() throws OffDroidException {
         if (context != null && hasCache(context)) {
             return getInstanceQueryOffDroidAbsLocal().count(classEntity, restrictions, context);
         } else if (local) {
@@ -196,27 +210,31 @@ public class QueryOffDroidManager {
      *
      * @param persistDB
      */
-    public static PersistDB insert(PersistDB persistDB, Context context) throws Exception {
-        return insert(persistDB, context, false);
+    public synchronized PersistDB insert(PersistDB persistDB) throws Exception {
+        return insert(persistDB, false);
     }
 
-    public static PersistDB insertLocal(PersistDB persistDB, Context context) throws Exception {
-        return insert(persistDB, context, true);
+    public synchronized PersistDB insertLocal(PersistDB persistDB) throws Exception {
+        return insert(persistDB, true);
     }
 
-    private static PersistDB insert(PersistDB persistDB, Context context, boolean local) throws Exception {
+    private synchronized PersistDB insert(PersistDB persistDB, boolean local) throws Exception {
+        return insert(persistDB, local, true);
+    }
+
+    private synchronized PersistDB insert(PersistDB persistDB, boolean local, boolean remove) throws Exception {
         if (local) {
-            return getInstanceQueryOffDroidAbsLocal().insert(persistDB, context);
+            return getInstanceQueryOffDroidAbsLocal().insert(persistDB, remove, context);
         } else {
             if (EntityReflection.haAnnotation(persistDB.getClass(), OnlyLocalStorage.class)) {
-                return getInstanceQueryOffDroidAbsLocal().insert(persistDB, context);
+                return getInstanceQueryOffDroidAbsLocal().insert(persistDB, remove, context);
             } else if (EntityReflection.haAnnotation(persistDB.getClass(), OnlyOnLine.class)) {
                 if (NetWorkUtils.isOnline()) {
-                    return getInstanceQueryOffDroidAbsWeb().insert(persistDB, getPropertiesUtils(context), context);
+                    return getInstanceQueryOffDroidAbsWeb().insert(persistDB, restrictions, getPropertiesUtils(context), context);
                 }
             } else {
                 if (NetWorkUtils.isOnline()) {
-                    PersistDB result = getInstanceQueryOffDroidAbsWeb().insert(persistDB, getPropertiesUtils(context), context);
+                    PersistDB result = getInstanceQueryOffDroidAbsWeb().insert(persistDB, restrictions, getPropertiesUtils(context), context);
                     if (result != null) {
 
                         if (result instanceof GenericPersist) {
@@ -224,12 +242,12 @@ public class QueryOffDroidManager {
                             genericPersist.beforeInsert();
                         }
 
-                        getInstanceQueryOffDroidAbsLocal().insert(result, context);
+                        getInstanceQueryOffDroidAbsLocal().insert(result, remove, context);
                     }
 
                     return result;
                 } else {
-                    return getInstanceQueryOffDroidAbsLocal().insert(persistDB, context);
+                    return getInstanceQueryOffDroidAbsLocal().insert(persistDB, remove, context);
                 }
             }
         }
@@ -241,15 +259,15 @@ public class QueryOffDroidManager {
      *
      * @param persistDB
      */
-    public static void remove(PersistDB persistDB, Context context) throws Exception {
-        remove(persistDB, context, false);
+    public synchronized void remove(PersistDB persistDB) throws Exception {
+        remove(persistDB, false);
     }
 
-    public static void removeLocal(PersistDB persistDB, Context context) throws Exception {
-        remove(persistDB, context, true);
+    public synchronized void removeLocal(PersistDB persistDB) throws Exception {
+        remove(persistDB, true);
     }
 
-    private static void remove(PersistDB persistDB, Context context, boolean local) throws Exception {
+    private static synchronized void remove(PersistDB persistDB, boolean local) throws Exception {
         if (local) {
             getInstanceQueryOffDroidAbsLocal().remove(persistDB, context);
         } else {
@@ -275,15 +293,15 @@ public class QueryOffDroidManager {
      *
      * @param persistDB
      */
-    public static PersistDB update(PersistDB persistDB, Context context) throws Exception {
-        return update(persistDB, context, false);
+    public synchronized PersistDB update(PersistDB persistDB) throws Exception {
+        return update(persistDB, false);
     }
 
-    public static PersistDB updateLocal(PersistDB persistDB, Context context) throws Exception {
-        return update(persistDB, context, true);
+    public synchronized PersistDB updateLocal(PersistDB persistDB) throws Exception {
+        return update(persistDB, true);
     }
 
-    private static PersistDB update(PersistDB persistDB, Context context, boolean local) throws Exception {
+    private synchronized PersistDB update(PersistDB persistDB, boolean local) throws Exception {
         if (local) {
             return getInstanceQueryOffDroidAbsLocal().update(persistDB, context);
         } else {
@@ -291,11 +309,11 @@ public class QueryOffDroidManager {
                 return getInstanceQueryOffDroidAbsLocal().update(persistDB, context);
             } else if (EntityReflection.haAnnotation(persistDB.getClass(), OnlyOnLine.class)) {
                 if (NetWorkUtils.isOnline()) {
-                    return getInstanceQueryOffDroidAbsWeb().update(persistDB, getPropertiesUtils(context), context);
+                    return getInstanceQueryOffDroidAbsWeb().update(persistDB, restrictions, getPropertiesUtils(context), context);
                 }
             } else {
                 if (NetWorkUtils.isOnline()) {
-                    PersistDB result = getInstanceQueryOffDroidAbsWeb().update(persistDB, getPropertiesUtils(context), context);
+                    PersistDB result = getInstanceQueryOffDroidAbsWeb().update(persistDB, restrictions, getPropertiesUtils(context), context);
                     if (result != null) {
 
                         if (result instanceof GenericPersist) {
@@ -315,17 +333,17 @@ public class QueryOffDroidManager {
         return null;
     }
 
-    private String getKey() {
+    private synchronized String getKey() {
         if (buildUrl == null)
             buildUrl = new BuildUrl();
         return buildUrl.montarURL(BuildOperation.GET, classEntity, restrictions, context, getPropertiesUtils(context));
     }
 
-    private void saveCache() {
+    private synchronized void saveCache() {
         getPropertiesUtils(context).addProperty(getKey(), System.currentTimeMillis() + "", context);
     }
 
-    public boolean hasCache(Context context) {
+    public synchronized boolean hasCache(Context context) {
         if (cache > 0) {
             String key = getKey();
             String time = getPropertiesUtils(context).getProperty(key, context);
@@ -337,16 +355,16 @@ public class QueryOffDroidManager {
         return false;
     }
 
-    public static void cleanBD(Context context) {
+    public synchronized static void cleanBD(Context context) {
         propertiesUtils = null;
         getInstanceQueryOffDroidAbsLocal().cleanDB(context);
     }
 
-    public static boolean isExistsDB(Context context) {
+    public synchronized static boolean isExistsDB(Context context) {
         return getInstanceQueryOffDroidAbsLocal().isExistsDB(context);
     }
 
-    private static void initializeBroadcast(Context context) {
+    private synchronized static void initializeBroadcast(Context context) {
         IntentFilter mIntentFilter = new IntentFilter();
         mIntentFilter.addAction("android.net.conn.CONNECTIVITY_CHANGE");
         mIntentFilter.addAction("android.net.wifi.WIFI_STATE_CHANGED");
@@ -357,12 +375,12 @@ public class QueryOffDroidManager {
         NetWorkUtils.setOnline(NetWorkUtils.isOnline(context));
     }
 
-    public static boolean isReceiverRegistered(BroadcastReceiver receiver) {
+    public synchronized static boolean isReceiverRegistered(BroadcastReceiver receiver) {
         boolean registered = receivers.contains(receiver);
         return registered;
     }
 
-    public static void unregisterReceiver() {
+    public synchronized static void unregisterReceiver() {
         if (isReceiverRegistered(receiver)) {
             receivers.remove(receiver);
             context.unregisterReceiver(receiver);
@@ -370,21 +388,21 @@ public class QueryOffDroidManager {
     }
 
 
-    private static QueryOffDroidAbsLocal getInstanceQueryOffDroidAbsLocal() {
+    private synchronized static QueryOffDroidAbsLocal getInstanceQueryOffDroidAbsLocal() {
         if (queryOffDroidAbsLocal == null) {
             queryOffDroidAbsLocal = new QueryOffDroidLocal();
         }
         return queryOffDroidAbsLocal;
     }
 
-    private static QueryOffDroidAbsWeb getInstanceQueryOffDroidAbsWeb() {
+    private synchronized static QueryOffDroidAbsWeb getInstanceQueryOffDroidAbsWeb() {
         if (queryOffDroidAbsWeb == null) {
             queryOffDroidAbsWeb = new QueryOffDroidWebService();
         }
         return queryOffDroidAbsWeb;
     }
 
-    public static PropertiesUtils getPropertiesUtils(Context context) {
+    public synchronized static PropertiesUtils getPropertiesUtils(Context context) {
         if (propertiesUtils == null) {
             propertiesUtils = new PropertiesUtils(context);
             propertiesUtils.importPropertyApp(context);

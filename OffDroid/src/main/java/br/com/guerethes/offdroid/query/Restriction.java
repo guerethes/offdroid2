@@ -9,6 +9,7 @@ import br.com.guerethes.offdroid.query.pagination.OffSet;
 import br.com.guerethes.offdroid.query.restriction.Eq;
 import br.com.guerethes.offdroid.query.restriction.Gt;
 import br.com.guerethes.offdroid.query.restriction.Like;
+import br.com.guerethes.offdroid.query.restriction.Ilike;
 import br.com.guerethes.offdroid.query.restriction.Lt;
 import br.com.guerethes.offdroid.query.restriction.NotNull;
 import br.com.guerethes.offdroid.query.restriction.Null;
@@ -96,6 +97,21 @@ public class Restriction {
 
     public static Like like(String field, Object value, EstrategiaPath estrategiaPath) {
         return Like.create(field, value, estrategiaPath);
+    }
+
+    /**
+     * Restrição condicional ILIKE (<field> LIKE (<value>)).
+     *
+     * @param field
+     * @param value
+     * @return
+     */
+    public static Ilike ilike(String field, Object value) {
+        return Ilike.create(field, value);
+    }
+
+    public static Ilike ilike(String field, Object value, EstrategiaPath estrategiaPath) {
+        return Ilike.create(field, value, estrategiaPath);
     }
 
     /**

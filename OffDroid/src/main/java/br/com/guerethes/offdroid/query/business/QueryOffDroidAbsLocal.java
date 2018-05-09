@@ -14,7 +14,7 @@ import br.com.guerethes.offdroid.query.ElementsRestrictionQuery;
  */
 abstract public class QueryOffDroidAbsLocal {
 
-    abstract protected PersistDB insert(PersistDB persistDB, Context context);
+    abstract protected PersistDB insert(PersistDB persistDB, boolean update, Context context);
 
     abstract protected void remove(PersistDB persistDB, Context context);
 

@@ -15,11 +15,11 @@ import br.com.guerethes.offdroid.utils.PropertiesUtils;
  */
 abstract public class QueryOffDroidAbsWeb {
 
-    abstract protected PersistDB insert(PersistDB persistDB, PropertiesUtils propertiesUtils, Context context) throws Exception;
+    abstract protected PersistDB insert(PersistDB persistDB, List<ElementsRestrictionQuery> restrictions, PropertiesUtils propertiesUtils, Context context) throws Exception;
 
     abstract protected void remove(PersistDB persistDB, PropertiesUtils propertiesUtils, Context context) throws Exception;
 
-    abstract protected PersistDB update(PersistDB persistDB, PropertiesUtils propertiesUtils, Context context) throws Exception;
+    abstract protected PersistDB update(PersistDB persistDB, List<ElementsRestrictionQuery> restrictions, PropertiesUtils propertiesUtils, Context context) throws Exception;
 
     abstract protected ArrayList<PersistDB> toList(Class<PersistDB> classEntity, List<ElementsRestrictionQuery> restrictions, Context context, PropertiesUtils propertiesUtils) throws Exception;
 

@@ -17,19 +17,20 @@ public class SyncUtils {
         QueryOffDroidManager queryOffDroidManager = QueryOffDroidManager.from(Sincronizacao.class, true, context);
         List<Sincronizacao> sincronizarList = (List<Sincronizacao>) queryOffDroidManager.toList();
 
-        if ( sincronizarList != null && !sincronizarList.isEmpty() ) {
+        if (sincronizarList != null && !sincronizarList.isEmpty()) {
             for (Sincronizacao sincronizacao : sincronizarList) {
 
                 Log.i("Sync",
                         "Sincronizando o dado " + sincronizacao.getValue().getClass()
-                        + " com ID: " + sincronizacao.getValue().getId() );
+                                + " com ID: " + sincronizacao.getValue().getId());
 
+                QueryOffDroidManager queryOperacao = QueryOffDroidManager.from(context);
                 if (sincronizacao.getOperacao() == Operation.CREATE.ordinal()) {
-                    QueryOffDroidManager.insert(sincronizacao.getValue(), context);
+                    queryOperacao.insert(sincronizacao.getValue());
                 } else if (sincronizacao.getOperacao() == Operation.UPDATE.ordinal()) {
-                    QueryOffDroidManager.update(sincronizacao.getValue(), context);
+                    queryOperacao.update(sincronizacao.getValue());
                 } else if (sincronizacao.getOperacao() == Operation.DELETE.ordinal()) {
-                    QueryOffDroidManager.remove(sincronizacao.getValue(), context);
+                    queryOperacao.remove(sincronizacao.getValue());
                 }
             }
         } else {
